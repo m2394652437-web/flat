@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="river_window_scale_v1">
+  <copyright>
+    SPDX-FileCopyrightText: © 2026 CQZY
+    SPDX-License-Identifier: MIT
+  </copyright>
+
+  <description summary="scale the rendered content of windows">
+    This protocol allows the river-window-management-v1 window manager to
+    render a window smaller or larger than its actual dimensions, without the
+    window knowing. The window is not asked to resize, the compositor scales
+    the buffers the window has already rendered.
+
+    This is useful for overviews and zoom animations.
+  </description>
+
+  <interface name="river_window_scale_v1" version="2">
+    <description summary="window scale global interface">
+      This global interface should only be advertised to the client if the
+      river_window_manager_v1 global is also advertised.
+    </description>
+
+    <enum name="error">
+      <entry name="invalid_scale" value="0"
+        summary="the scale numerator or denominator is 0"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the river_window_scale_v1 object">
+        This request indicates that the client will no longer use the
+        river_window_scale_v1 object. Windows keep their current scale.
+      </description>
+    </request>
+
+    <request name="set_scale">
+      <description summary="set the scale the window is rendered at">
+        Render the window, including its borders and decorations, scaled by
+        numerator / denominator. The scale is relative to the top left corner
+        of the window as set by river_node_v1.set_position. Clip boxes are
+        given in unscaled window coordinates and are scaled with the window.
+
+        Popups of a window that is not at scale 1 are not rendered. The
+        window does not receive pointer, touch or tablet input while it is not
+        at scale 1, the input goes to the window manager as if it hit the
+        window's borders. A window rendered fullscreen ignores its scale.
+
+        This request modifies rendering state and may only be made as part
+        of a render sequence, see the river_window_manager_v1 description.
+
+        The initial scale is 1.
+      </description>
+      <arg name="window" type="object" interface="river_window_v1"/>
+      <arg name="numerator" type="uint"/>
+      <arg name="denominator" type="uint"/>
+    </request>
+
+    <request name="get_ghost" since="2">
+      <description summary="keep the last frame of a window after it closes">
+        Create a ghost for the window. Nothing is shown while the window is
+        open. When the window is closed, in the manage sequence that sends
+        river_window_v1.closed, the ghost takes a copy of everything the window
+        showed last: its buffers, borders and decorations, as they were
+        rendered, including their scale and clip boxes. Popups are not copied.
+
+        The ghost is shown where the window was, on top of it, and stays until
+        it is destroyed, so that the window manager can animate it away.
+
+        A ghost created for a window that is already closed, or whose window
+        was not shown when it closed, stays empty. A second ghost for the same
+        window replaces the first, which stays empty.
+      </description>
+      <arg name="id" type="new_id" interface="river_window_ghost_v1"/>
+      <arg name="window" type="object" interface="river_window_v1"/>
+    </request>
+  </interface>
+
+  <interface name="river_window_ghost_v1" version="2">
+    <description summary="the last frame of a closed window">
+      The requests of this interface modify rendering state. They are applied
+      at the end of the next render sequence, see the
+      river_window_manager_v1 description.
+    </description>
+
+    <enum name="error">
+      <entry name="invalid_scale" value="0"
+        summary="the scale numerator or denominator is 0"/>
+      <entry name="invalid_opacity" value="1"
+        summary="the opacity denominator is 0 or less than the numerator"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the ghost">
+        Stop showing the ghost and free its copy of the window's buffers.
+      </description>
+    </request>
+
+    <request name="set_position">
+      <description summary="set the position of the ghost">
+        Set the position of the ghost's top left corner in the layout
+        coordinate space, like river_node_v1.set_position does for the
+        window. The initial position is the window's last position.
+      </description>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+    </request>
+
+    <request name="set_scale">
+      <description summary="scale the ghost">
+        Render the ghost scaled by numerator / denominator, relative to its
+        top left corner and to the size the window was last rendered at.
+        The initial scale is 1.
+      </description>
+      <arg name="numerator" type="uint"/>
+      <arg name="denominator" type="uint"/>
+    </request>
+
+    <request name="set_opacity">
+      <description summary="set the opacity of the ghost">
+        Render the ghost with its opacity multiplied by numerator /
+        denominator, which must not be greater than 1. The initial opacity
+        is 1.
+      </description>
+      <arg name="numerator" type="uint"/>
+      <arg name="denominator" type="uint"/>
+    </request>
+  </interface>
+</protocol>

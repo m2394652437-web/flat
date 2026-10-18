@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Flat
+Comment=Flat Wayland session: the flat compositor with flat-wm
+Exec=flat -c flat-wm
+Type=Application
+DesktopNames=flat;wlroots
