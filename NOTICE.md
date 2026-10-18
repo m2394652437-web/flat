@@ -29,6 +29,11 @@ Changes, October 2026, by CQZY:
   `river/Window.zig`, `river/WindowManager.zig`, `river/Output.zig`,
   `river/Scene.zig`, `river/Server.zig`, `river/main.zig`, `build.zig`,
   `build.zig.zon`, `doc/flat.1.scd`.
+- Added the `river-workspace-v1` protocol: the window manager publishes its
+  workspaces, which are shown to other clients through `ext-workspace-v1`.
+  Files: `protocol/river-workspace-v1.xml`, `river/Workspaces.zig`,
+  `river/Workspace.zig`, and changes in `river/Output.zig`,
+  `river/Server.zig`, `build.zig`.
 - Removed river's logo, CI files, code of conduct, contributing and
   packaging guides and README, which describe the river project. A new
   README was written.
@@ -55,6 +60,8 @@ Changes, October 2026, by CQZY:
 - Workspaces: each one a plane of rows; tags became the rows.
 - Overview, zoomed out with `river-window-scale-v1` when the compositor
   offers it.
+- Workspaces published to bars through `river-workspace-v1`, for
+  `ext-workspace-v1` clients such as DankMaterialShell.
 - Touchpad gestures read from libinput: columns, rows (three fingers) and
   workspaces (four fingers).
 - Animations for focus, swaps, width changes, rows, workspaces, opening
@@ -65,7 +72,8 @@ Changes, October 2026, by CQZY:
 - Removed kwm's logo, screenshot, CI files, package list, install scripts
   and README. A new README was written.
 
-New files: `wm/protocol/river-window-scale-v1.xml` (MIT, © 2026 CQZY),
+New files: `wm/protocol/river-window-scale-v1.xml` and
+`wm/protocol/river-workspace-v1.xml` (MIT, © 2026 CQZY),
 `wm/README.md`, `wm/contrib/flat.desktop`.
 
 ## The rest

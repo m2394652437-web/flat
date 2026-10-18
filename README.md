@@ -8,7 +8,9 @@ A Wayland desktop in two programs:
   [kwm](https://github.com/kewuaa/kwm).
 
 They talk through river's Wayland protocols, plus `river-window-scale-v1`,
-which Flat adds for the zoomed out overview and the close animation.
+which Flat adds for the zoomed out overview and the close animation, and
+`river-workspace-v1`, which publishes the workspaces of `flat-wm` to bars
+through `ext-workspace-v1`.
 
 ## Building
 

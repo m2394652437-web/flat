@@ -88,6 +88,7 @@ pub fn build(b: *Build) !void {
     scanner.addSystemProtocol("unstable/xdg-decoration/xdg-decoration-unstable-v1.xml");
     scanner.addSystemProtocol("unstable/xdg-foreign/xdg-foreign-unstable-v2.xml");
     scanner.addSystemProtocol("staging/ext-transient-seat/ext-transient-seat-v1.xml");
+    scanner.addSystemProtocol("staging/ext-workspace/ext-workspace-v1.xml");
 
     scanner.addCustomProtocol(b.path("protocol/river-window-management-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/river-xkb-bindings-v1.xml"));
@@ -99,6 +100,7 @@ pub fn build(b: *Build) !void {
     scanner.addCustomProtocol(b.path("protocol/river-xkb-config-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/river-virtual-keyboard-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/river-window-scale-v1.xml"));
+    scanner.addCustomProtocol(b.path("protocol/river-workspace-v1.xml"));
 
     scanner.addCustomProtocol(b.path("protocol/upstream/wlr-layer-shell-unstable-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/upstream/wlr-output-power-management-unstable-v1.xml"));
@@ -125,6 +127,7 @@ pub fn build(b: *Build) !void {
     scanner.generate("zxdg_exporter_v2", 1);
     scanner.generate("ext_session_lock_manager_v1", 1);
     scanner.generate("ext_transient_seat_manager_v1", 1);
+    scanner.generate("ext_workspace_manager_v1", 1);
     scanner.generate("wp_cursor_shape_manager_v1", 1);
     scanner.generate("wp_tearing_control_manager_v1", 1);
     scanner.generate("wp_color_manager_v1", 2);
@@ -140,6 +143,7 @@ pub fn build(b: *Build) !void {
     scanner.generate("river_xkb_config_v1", 3);
     scanner.generate("river_virtual_keyboard_manager_v1", 1);
     scanner.generate("river_window_scale_v1", 2);
+    scanner.generate("river_workspace_manager_v1", 1);
 
     scanner.generate("zwlr_output_power_manager_v1", 1);
     scanner.generate("zwlr_layer_shell_v1", 4);
@@ -236,6 +240,7 @@ pub fn build(b: *Build) !void {
             "river-libinput-config-v1.xml",
             "river-xkb-config-v1.xml",
             "river-window-scale-v1.xml",
+            "river-workspace-v1.xml",
         }) |protocol| {
             b.installFile("protocol/" ++ protocol, "share/flat-protocols/stable/" ++ protocol);
         }

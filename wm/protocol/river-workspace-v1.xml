@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="river_workspace_v1">
+  <copyright>
+    SPDX-FileCopyrightText: © 2026 CQZY
+    SPDX-License-Identifier: MIT
+  </copyright>
+
+  <description summary="let the window manager publish its workspaces">
+    This protocol allows the river-window-management-v1 window manager to
+    tell the compositor about its workspaces. The compositor shows them to
+    other clients, for example through ext-workspace-v1, and passes their
+    requests to activate a workspace back to the window manager.
+
+    The compositor does not know what a workspace holds and does not change
+    what is rendered on its own, the window manager stays in charge.
+  </description>
+
+  <interface name="river_workspace_manager_v1" version="1">
+    <description summary="workspace manager global interface">
+      This global interface should only be advertised to the client if the
+      river_window_manager_v1 global is also advertised.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the river_workspace_manager_v1 object">
+        This request indicates that the client will no longer use the
+        river_workspace_manager_v1 object. Workspaces created through it are
+        not affected.
+      </description>
+    </request>
+
+    <request name="get_workspace">
+      <description summary="create a workspace on an output">
+        Create a new workspace on the given output. The window manager should
+        set its name and state right after creating it.
+
+        If the output has been removed, the workspace is inert: it is never
+        shown and never receives events.
+      </description>
+      <arg name="id" type="new_id" interface="river_workspace_v1"/>
+      <arg name="output" type="object" interface="river_output_v1"/>
+    </request>
+  </interface>
+
+  <interface name="river_workspace_v1" version="1">
+    <description summary="a workspace of the window manager">
+      The requests of this interface may be made at any time, they are not
+      tied to manage or render sequences. The compositor forwards the
+      changes to other clients batched.
+    </description>
+
+    <enum name="state" bitfield="true">
+      <entry name="active" value="1" summary="the workspace is shown on its output"/>
+      <entry name="urgent" value="2" summary="the workspace wants attention"/>
+      <entry name="hidden" value="4"
+        summary="the workspace should not be listed, for example because it is empty"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the workspace">
+        Remove the workspace. Other clients are told that it is gone.
+      </description>
+    </request>
+
+    <request name="set_name">
+      <description summary="set the name of the workspace">
+        Set the name shown to other clients, for example "1".
+      </description>
+      <arg name="name" type="string"/>
+    </request>
+
+    <request name="set_position">
+      <description summary="set the position of the workspace">
+        Set the place of the workspace among the workspaces of its output,
+        lower comes first. Other clients use it to sort the workspaces.
+        The initial position is 0.
+      </description>
+      <arg name="position" type="uint"/>
+    </request>
+
+    <request name="set_state">
+      <description summary="set the state of the workspace">
+        Replace the state of the workspace. The initial state is empty.
+      </description>
+      <arg name="state" type="uint" enum="state"/>
+    </request>
+
+    <event name="activate">
+      <description summary="a client asked to show the workspace">
+        Another client asked for this workspace to be shown on its output.
+        The window manager decides whether and when it does so, and reports
+        the result with set_state.
+      </description>
+    </event>
+  </interface>
+</protocol>

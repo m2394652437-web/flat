@@ -23,6 +23,7 @@ const LayerShellOutput = @import("LayerShellOutput.zig");
 const LockSurface = @import("LockSurface.zig");
 const SceneNodeData = @import("SceneNodeData.zig");
 const Window = @import("Window.zig");
+const Workspaces = @import("Workspaces.zig");
 
 const log = std.log.scoped(.output);
 
@@ -140,6 +141,8 @@ scene_output: ?*wlr.SceneOutput,
 
 object: ?*river.OutputV1 = null,
 layer_shell: LayerShellOutput = .{},
+/// ext-workspace group of the workspaces the window manager created on this output
+workspace_group: ?*wlr.ExtWorkspaceGroupHandleV1 = null,
 
 /// Tracks the currently presented frame on the output as it pertains to ext-session-lock.
 /// The output is initially considered blanked:
@@ -299,6 +302,8 @@ fn handleDestroy(listener: *wl.Listener(*wlr.Output), wlr_output: *wlr.Output) v
         }
     }
 
+    Workspaces.destroyGroup(output);
+
     output.destroy.link.remove();
     output.request_state.link.remove();
     output.frame.link.remove();
@@ -412,6 +417,7 @@ pub fn makeInert(output: *Output) void {
         output_v1.sendRemoved();
         output_v1.setHandler(?*anyopaque, handleRequestInert, null, null);
         output.layer_shell.makeInert();
+        Workspaces.destroyGroup(output);
         handleObjectDestroy(output_v1, output);
     }
 }

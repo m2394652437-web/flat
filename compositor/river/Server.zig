@@ -21,6 +21,7 @@ const InputManager = @import("InputManager.zig");
 const LayerShell = @import("LayerShell.zig");
 const LibinputConfig = @import("LibinputConfig.zig");
 const WindowScale = @import("WindowScale.zig");
+const Workspaces = @import("Workspaces.zig");
 const LockManager = @import("LockManager.zig");
 const Output = @import("Output.zig");
 const OutputManager = @import("OutputManager.zig");
@@ -106,6 +107,7 @@ xkb_bindings: XkbBindings,
 touch_gestures: TouchGestures,
 layer_shell: LayerShell,
 window_scale: WindowScale,
+workspaces: Workspaces,
 
 xwayland: if (build_options.xwayland) ?*wlr.Xwayland else void = if (build_options.xwayland) null,
 new_xsurface: if (build_options.xwayland) wl.Listener(*wlr.XwaylandSurface) else void =
@@ -203,6 +205,7 @@ pub fn init(server: *Server, runtime_xwayland: bool) !void {
         .touch_gestures = undefined,
         .layer_shell = undefined,
         .window_scale = undefined,
+        .workspaces = undefined,
     };
 
     if (renderer.getTextureFormats(@intFromEnum(wlr.BufferCap.dmabuf)) != null) {
@@ -242,6 +245,7 @@ pub fn init(server: *Server, runtime_xwayland: bool) !void {
     try server.touch_gestures.init();
     try server.layer_shell.init();
     try server.window_scale.init();
+    try server.workspaces.init();
     try server.scene.init();
     try server.om.init();
     try server.input_manager.init();
@@ -302,6 +306,7 @@ pub fn deinit(server: *Server) void {
     server.lock_manager.deinit();
     server.layer_shell.deinit();
     server.window_scale.deinit();
+    server.workspaces.deinit();
 
     server.wl_server.destroy();
 }
@@ -392,6 +397,8 @@ fn blocklist(server: *Server, global: *const wl.Global) bool {
         global == server.layer_shell.global or
         global == server.layer_shell.wlr_shell.global or
         global == server.window_scale.global or
+        global == server.workspaces.global or
+        global == server.workspaces.ext_manager.global or
         global == server.xkb_bindings.global or
         global == server.touch_gestures.global or
         global == server.screencopy_manager.global or

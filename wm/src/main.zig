@@ -39,6 +39,8 @@ const Globals = struct {
     rwm_layer_shell: ?*river.LayerShellV1 = null,
     // optional, only river forks implement it
     rwm_window_scale: ?*river.WindowScaleV1 = null,
+    // optional, only Flat implements it
+    rwm_workspace_manager: ?*river.WorkspaceManagerV1 = null,
     rwm_inputs: kwm.RiverInputs = .{},
 };
 
@@ -140,6 +142,7 @@ pub fn main(init: process.Init) !void {
             rwm_xkb_bindings,
             rwm_layer_shell,
             globals.rwm_window_scale,
+            globals.rwm_workspace_manager,
             globals.rwm_inputs,
         );
     }
@@ -173,6 +176,8 @@ fn registry_listener(registry: *wl.Registry, event: wl.Registry.Event, globals: 
                 globals.rwm_layer_shell = registry.bind(global.name, river.LayerShellV1, 1) catch return;
             } else if (mem.orderZ(u8, global.interface, river.WindowScaleV1.interface.name) == .eq) {
                 globals.rwm_window_scale = registry.bind(global.name, river.WindowScaleV1, @min(global.version, 2)) catch return;
+            } else if (mem.orderZ(u8, global.interface, river.WorkspaceManagerV1.interface.name) == .eq) {
+                globals.rwm_workspace_manager = registry.bind(global.name, river.WorkspaceManagerV1, 1) catch return;
             } else if (comptime build_options.kwim_enabled) {
                 if (mem.orderZ(u8, global.interface, river.InputManagerV1.interface.name) == .eq) {
                     globals.rwm_inputs.input_manager = registry.bind(global.name, river.InputManagerV1, 1) catch return;

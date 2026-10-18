@@ -63,6 +63,8 @@ rwm_xkb_bindings: *river.XkbBindingsV1,
 rwm_layer_shell: *river.LayerShellV1,
 // renders windows scaled, null if the compositor does not support it
 rwm_window_scale: ?*river.WindowScaleV1,
+// publishes the workspaces to other clients, null if the compositor does not support it
+rwm_workspace_manager: ?*river.WorkspaceManagerV1,
 rwm_inputs: if (build_options.kwim_enabled) types.RiverInputs else void = if (build_options.kwim_enabled) .{} else {},
 
 // seperate layer between floating and nonfloating
@@ -121,6 +123,7 @@ pub fn init(
     rwm_xkb_bindings: *river.XkbBindingsV1,
     rwm_layer_shell: *river.LayerShellV1,
     rwm_window_scale: ?*river.WindowScaleV1,
+    rwm_workspace_manager: ?*river.WorkspaceManagerV1,
     rwm_inputs: types.RiverInputs,
 ) !void {
     // initialize once
@@ -149,6 +152,7 @@ pub fn init(
         .rwm_xkb_bindings = rwm_xkb_bindings,
         .rwm_layer_shell = rwm_layer_shell,
         .rwm_window_scale = rwm_window_scale,
+        .rwm_workspace_manager = rwm_workspace_manager,
         .key_repeat = undefined,
         .terminal_windows = .init(gpa),
         .output_states = .init(gpa),
@@ -217,6 +221,7 @@ pub fn deinit() void {
     ctx.rwm_xkb_bindings.destroy();
     ctx.rwm_layer_shell.destroy();
     if (ctx.rwm_window_scale) |window_scale| window_scale.destroy();
+    if (ctx.rwm_workspace_manager) |workspace_manager| workspace_manager.destroy();
     ctx.layer_marker.deinit();
     ctx.wl_surface.destroy();
     if (comptime build_options.kwim_enabled) {
@@ -1042,6 +1047,13 @@ fn prepare_manage(self: *Self) void {
     log.debug("prepare to manage", .{});
 
     {
+        var it = self.outputs.safeIterator(.forward);
+        while (it.next()) |output| {
+            output.apply_requested_workspace();
+        }
+    }
+
+    {
         var it = self.seats.safeIterator(.forward);
         while (it.next()) |seat| {
             seat.manage();
@@ -1181,6 +1193,13 @@ fn rwm_listener(rwm: *river.WindowManagerV1, event: river.WindowManagerV1.Event,
                 var it = context.seats.iterator(.forward);
                 while (it.next()) |seat| {
                     seat.try_focus();
+                }
+            }
+
+            {
+                var it = context.outputs.safeIterator(.forward);
+                while (it.next()) |output| {
+                    output.sync_rwm_workspaces();
                 }
             }
 

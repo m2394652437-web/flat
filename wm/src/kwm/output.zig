@@ -2,6 +2,7 @@ const Self = @This();
 
 const build_options = @import("build_options");
 const std = @import("std");
+const fmt = std.fmt;
 const mem = std.mem;
 const math = std.math;
 const log = std.log.scoped(.output);
@@ -107,6 +108,17 @@ peek_workspace: ?u8 = null,
 peek_workspace_offset_x: i32 = 0,
 // 1: the peek workspace is right of the current one, -1: left
 peek_workspace_side: i32 = 1,
+// how much farther than workspace_distance() the peek workspace slides out: a row wider than
+// the output reaches past its edge and has to leave the view too
+peek_workspace_overhang: i32 = 0,
+// part of peek_workspace_overhang added so far, grows to it as peek_workspace_offset_x settles
+peek_workspace_overhang_x: i32 = 0,
+// the workspaces as published to other clients through river-workspace-v1, null if unsupported
+rwm_workspaces: [workspace_max]?*river.WorkspaceV1 = @splat(null),
+// state last sent for each of rwm_workspaces
+sent_workspace_states: [workspace_max]?river.WorkspaceV1.State = @splat(null),
+// workspace another client asked to show, switched to in the next manage sequence
+requested_workspace: ?u8 = null,
 
 name: ?[]const u8 = null,
 x: i32 = undefined,
@@ -148,6 +160,10 @@ pub fn create(
         layer_shell_output.setListener(*Self, rwm_layer_shell_output_listener, output);
     }
 
+    if (ctx.rwm_workspace_manager) |workspace_manager| {
+        output.create_rwm_workspaces(workspace_manager);
+    }
+
     return output;
 }
 
@@ -167,6 +183,10 @@ pub fn destroy(self: *Self) void {
     }
 
     self.set_name(null);
+
+    for (self.rwm_workspaces) |rwm_workspace| {
+        if (rwm_workspace) |workspace| workspace.destroy();
+    }
 
     self.link.remove();
     self.rwm_output.destroy();
@@ -343,7 +363,31 @@ pub fn workspace_distance(self: *Self) i32 {
 // horizontal offset of the windows of `workspace` while a workspace switch slides
 pub fn workspace_shift(self: *Self, workspace: u8) i32 {
     if (workspace == self.workspace) return self.workspace_offset_x;
-    return self.peek_workspace_offset_x + self.peek_workspace_side * self.workspace_distance();
+    return self.peek_workspace_offset_x + self.peek_workspace_side * (self.workspace_distance() + self.peek_workspace_overhang_x);
+}
+
+// how much farther than workspace_distance() the peek workspace has to slide to leave the view
+pub fn peek_overhang(self: *Self) i32 {
+    const peek = self.peek_workspace orelse return 0;
+    const border_width = ctx.cfg.border.width;
+    // the part of the plane shown by the output, as in Window.render()
+    const center_x = @as(f64, @floatFromInt(self.exclusive_width())) / 2;
+    const view_left: i32 = @intFromFloat(@floor(center_x - center_x / self.zoom));
+    const view_right: i32 = @intFromFloat(@ceil(center_x + (@as(f64, @floatFromInt(self.width)) - center_x) / self.zoom));
+    const distance = self.workspace_distance();
+
+    var overhang: i32 = 0;
+    var it = ctx.windows.iterator(.forward);
+    while (it.next()) |window| {
+        if (window.output != self or window.workspace != peek or window.sticky or window.geometry_undefined) continue;
+        if (!window.is_visible()) continue;
+        const needed = if (self.peek_workspace_side < 0)
+            window.x + window.width + border_width - view_left - distance
+        else
+            view_right - (window.x - border_width) - distance;
+        overhang = @max(overhang, needed);
+    }
+    return overhang;
 }
 
 // every row of the workspace is shown: in the zoomed out overview and while zooming
@@ -364,6 +408,51 @@ pub fn occupied_workspaces(self: *const Self) u32 {
         if (window.output == self and window.swallowed_by == null) mask |= @as(u32, 1) << @intCast(window.workspace);
     }
     return mask;
+}
+
+fn create_rwm_workspaces(self: *Self, workspace_manager: *river.WorkspaceManagerV1) void {
+    for (&self.rwm_workspaces, 0..) |*slot, i| {
+        const workspace = workspace_manager.getWorkspace(self.rwm_output) catch |err| {
+            log.err("<{*}> create workspace {} failed: {}", .{ self, i + 1, err });
+            continue;
+        };
+        var buffer: [4]u8 = undefined;
+        workspace.setName(fmt.bufPrintZ(&buffer, "{}", .{i + 1}) catch unreachable);
+        workspace.setPosition(@intCast(i));
+        workspace.setListener(*Self, rwm_workspace_listener, self);
+        slot.* = workspace;
+    }
+    self.sync_rwm_workspaces();
+}
+
+// tell other clients which workspace is shown and which ones hold windows
+pub fn sync_rwm_workspaces(self: *Self) void {
+    const occupied = self.occupied_workspaces();
+    for (self.rwm_workspaces, &self.sent_workspace_states, 0..) |rwm_workspace, *sent, i| {
+        const workspace = rwm_workspace orelse continue;
+        const active = i == self.workspace;
+        const state: river.WorkspaceV1.State = .{
+            .active = active,
+            // empty workspaces are not listed, the shown one and the first one always are
+            .hidden = !active and i != 0 and occupied & (@as(u32, 1) << @intCast(i)) == 0,
+        };
+        if (sent.*) |s| if (@as(u32, @bitCast(s)) == @as(u32, @bitCast(state))) continue;
+        workspace.setState(state);
+        sent.* = state;
+    }
+}
+
+// switch to the workspace another client asked for, and to this output
+pub fn apply_requested_workspace(self: *Self) void {
+    const workspace = self.requested_workspace orelse return;
+    self.requested_workspace = null;
+
+    log.debug("<{*}> workspace {} requested", .{ self, workspace + 1 });
+
+    ctx.set_current_output(self);
+    if (ctx.overview.active) {
+        ctx.overview.set_workspace(self, workspace);
+    } else self.set_workspace(workspace);
 }
 
 pub fn switch_to_previous_tag(self: *Self) void {
@@ -701,6 +790,16 @@ fn rwm_output_listener(rwm_output: *river.OutputV1, event: river.OutputV1.Event,
             const wl_output = ctx.wl_registry.bind(data.name, wl.Output, 4) catch return;
             output.wl_output = wl_output;
             wl_output.setListener(*Self, wl_output_listener, output);
+        },
+    }
+}
+
+fn rwm_workspace_listener(rwm_workspace: *river.WorkspaceV1, event: river.WorkspaceV1.Event, output: *Self) void {
+    switch (event) {
+        .activate => {
+            const index = mem.indexOfScalar(?*river.WorkspaceV1, &output.rwm_workspaces, rwm_workspace) orelse return;
+            output.requested_workspace = @intCast(index);
+            ctx.rwm.manageDirty();
         },
     }
 }

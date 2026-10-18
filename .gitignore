@@ -2,3 +2,4 @@
 zig-out/
 zig-pkg/
 /wm/config.zon
+/.claude/settings.local.json

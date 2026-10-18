@@ -18,6 +18,12 @@ It adds `river-window-scale-v1` (`protocol/river-window-scale-v1.xml`):
 - `get_ghost` (version 2) keeps the last frame of a window after it closes,
   so the window manager can animate it away.
 
+It also adds `river-workspace-v1` (`protocol/river-workspace-v1.xml`): the
+window manager publishes its workspaces, and Flat shows them to other
+clients through `ext-workspace-v1`. Bars such as DankMaterialShell list the
+workspaces and switch them; Flat passes the switch back to the window
+manager.
+
 This is not river. Please do not report problems with Flat to the river
 project.
 

@@ -73,6 +73,7 @@ pub fn build(b: *std.Build) void {
     scanner.addCustomProtocol(b.path("protocol/river-xkb-bindings-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/river-layer-shell-v1.xml"));
     scanner.addCustomProtocol(b.path("protocol/river-window-scale-v1.xml"));
+    scanner.addCustomProtocol(b.path("protocol/river-workspace-v1.xml"));
     if (kwim_enabled) {
         scanner.addCustomProtocol(b.path("protocol/river-input-management-v1.xml"));
         scanner.addCustomProtocol(b.path("protocol/river-libinput-config-v1.xml"));
@@ -93,6 +94,7 @@ pub fn build(b: *std.Build) void {
     scanner.generate("river_xkb_bindings_v1", 2);
     scanner.generate("river_layer_shell_v1", 1);
     scanner.generate("river_window_scale_v1", 2);
+    scanner.generate("river_workspace_manager_v1", 1);
     if (kwim_enabled) {
         scanner.generate("river_input_manager_v1", 1);
         scanner.generate("river_libinput_config_v1", 1);

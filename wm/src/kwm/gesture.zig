@@ -227,6 +227,7 @@ fn handle_event(self: *Self, event: *Event) void {
                 const shown = if (output.peek_workspace == null) rubber(offset, 0) else offset;
                 output.workspace_offset_x = shown;
                 output.peek_workspace_offset_x = shown;
+                output.peek_workspace_overhang_x = 0;
                 ctx.rwm.manageDirty();
             }
         },
@@ -411,6 +412,8 @@ pub fn start_settle_y(output: *Output, from: i32) void {
 pub fn start_settle_workspace(output: *Output, from: i32) void {
     output.workspace_offset_x = from;
     output.peek_workspace_offset_x = from;
+    output.peek_workspace_overhang = if (from == 0) 0 else output.peek_overhang();
+    output.peek_workspace_overhang_x = 0;
     if (from == 0) {
         output.workspace_anim_start_ms = null;
         output.peek_workspace = null;
@@ -559,10 +562,13 @@ fn tick(_: *Context) void {
         }
         if (output.workspace_anim_start_ms) |start| {
             // the old workspace leaves in half the time
-            output.peek_workspace_offset_x = if (progress_in(now, start, ctx.cfg.gesture.settle_ms / 2)) |p|
-                @intFromFloat(@round(output.workspace_anim_from * p))
-            else
-                0;
+            if (progress_in(now, start, ctx.cfg.gesture.settle_ms / 2)) |p| {
+                output.peek_workspace_offset_x = @intFromFloat(@round(output.workspace_anim_from * p));
+                output.peek_workspace_overhang_x = @intFromFloat(@round(@as(f64, @floatFromInt(output.peek_workspace_overhang)) * (1 - p)));
+            } else {
+                output.peek_workspace_offset_x = 0;
+                output.peek_workspace_overhang_x = output.peek_workspace_overhang;
+            }
             if (ease(now, start, output.workspace_anim_from)) |offset| {
                 output.workspace_offset_x = offset;
                 active = true;

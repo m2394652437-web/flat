@@ -9,7 +9,11 @@ without the features that need `river-window-scale-v1`.
 ## Features
 
 - Scroller layout: each row is a strip of columns that scrolls sideways.
-- Workspaces: up to 9 per output, each one a plane of rows.
+- Workspaces: up to 9 per output, each one a plane of rows. On Flat they
+  are published through `river-workspace-v1`, so bars that read
+  `ext-workspace-v1`, such as DankMaterialShell, list and switch them.
+  Empty workspaces other than the shown one and the first one are marked
+  hidden.
 - Overview: zooms out of the workspace (needs `river-window-scale-v1`),
   falls back to a grid of the rows on other compositors.
 - Touchpad gestures, read from libinput directly (the user must be in the
