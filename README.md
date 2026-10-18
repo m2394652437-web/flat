@@ -15,9 +15,24 @@ through `ext-workspace-v1`.
 ## Building
 
 ```
+./reinstall.sh
+```
+
+This builds `flat` and `flat-wm` and installs them to `~/.local` (set
+`PREFIX` to change it). A running session keeps the old binaries until the
+next login. With `--if-changed` it does nothing when no source file changed
+since the last install. The build log goes to
+`~/.local/state/flat/reinstall.log`.
+
+The same by hand:
+
+```
 cd compositor && zig build -Doptimize=ReleaseSafe -Dxwayland=true --prefix ~/.local install
 cd wm && zig build -Doptimize=ReleaseSafe --prefix ~/.local install
 ```
+
+The dependencies are listed in [`compositor/README.md`](compositor/README.md)
+and [`wm/README.md`](wm/README.md).
 
 Start the session with `flat -c flat-wm`, or pick "Flat" in the display
 manager (`wm/contrib/flat.desktop`).
