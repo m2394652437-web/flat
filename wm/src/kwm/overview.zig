@@ -179,7 +179,11 @@ pub fn arrange(self: *Self, output: *Output) void {
 }
 
 pub fn is_candidate(window: *const Window, output: *const Output) bool {
-    return window.output == output and window.workspace == output.workspace and !window.floating and window.swallowed_by == null;
+    return is_candidate_in(window, output, output.workspace);
+}
+
+inline fn is_candidate_in(window: *const Window, output: *const Output, workspace: u8) bool {
+    return window.output == output and window.workspace == workspace and !window.floating and window.swallowed_by == null;
 }
 
 inline fn row_of(window: *const Window) u5 {
@@ -203,7 +207,7 @@ inline fn cell_width(window: *const Window, output_width: i32, scale: f32) i32 {
     return @max(window.min_width, @as(i32, @intFromFloat(window.scroller_mfact * @as(f32, @floatFromInt(output_width)) * scale)));
 }
 
-fn neighbor(window: *Window, comptime dir: enum { prev, next }) ?*Window {
+fn neighbor(window: *Window, comptime dir: Side) ?*Window {
     const output = window.output orelse return null;
     const row = row_of(window);
     var link = &window.link;
@@ -226,13 +230,48 @@ pub fn select(self: *Self, direction: Direction) void {
     const output = current.output orelse return;
 
     self.selected = switch (direction) {
-        .left => neighbor(current, .prev),
-        .right => neighbor(current, .next),
+        .left => neighbor(current, .prev) orelse self.cross_workspace(output, row_of(current), .prev),
+        .right => neighbor(current, .next) orelse self.cross_workspace(output, row_of(current), .next),
         .up, .down => blk: {
             const target = adjacent_row(output, row_of(current), direction) orelse break :blk null;
             break :blk nth_in_row(output, target, column_of(current));
         },
     } orelse current;
+}
+
+const Side = enum { prev, next };
+
+// past the end of a row, switch `output` to the nearest workspace on that side that has
+// windows and return the window next to the edge crossed: the first one going right, the
+// last one going left; it stays on `row` if that workspace has the row
+fn cross_workspace(self: *Self, output: *Output, row: u5, comptime dir: Side) ?*Window {
+    var workspace = output.workspace;
+    const window = while (true) {
+        workspace = switch (dir) {
+            .prev => if (workspace == 0) return null else workspace - 1,
+            .next => if (workspace + 1 >= Output.workspace_max) return null else workspace + 1,
+        };
+        if (edge_window(output, workspace, row, dir)) |w| break w;
+    };
+    self.set_workspace(output, workspace);
+    return window;
+}
+
+fn edge_window(output: *const Output, workspace: u8, row: u5, comptime dir: Side) ?*Window {
+    var first: ?*Window = null;
+    var found: ?*Window = null;
+    var it = ctx.windows.safeIterator(.forward);
+    while (it.next()) |window| {
+        if (!is_candidate_in(window, output, workspace)) continue;
+        if (first == null) first = window;
+        if (row_of(window) != row) continue;
+        found = window;
+        if (dir == .next) break;
+    }
+    if (found) |window| return window;
+    // the workspace has no such row, take the first one it has
+    const window = first orelse return null;
+    return edge_window(output, workspace, row_of(window), dir);
 }
 
 pub fn first_candidate() ?*Window {
@@ -305,8 +344,8 @@ fn select_focus(direction: Direction) void {
     };
     const output = current.output orelse return;
     const target = switch (direction) {
-        .left => neighbor(current, .prev),
-        .right => neighbor(current, .next),
+        .left => neighbor(current, .prev) orelse ctx.overview.cross_workspace(output, row_of(current), .prev),
+        .right => neighbor(current, .next) orelse ctx.overview.cross_workspace(output, row_of(current), .next),
         .up, .down => blk: {
             const row = adjacent_row(output, row_of(current), direction) orelse break :blk null;
             break :blk focus_top_in_row(output, row);
