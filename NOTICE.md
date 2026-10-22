@@ -55,7 +55,9 @@ except the new ones below may have been changed by CQZY between
 
 Changes, October 2026, by CQZY:
 
-- Preset window widths, macros in `config.zon`.
+- Preset window widths.
+- Removed the config preprocessor (`@if`, `@include`, `@define` macros):
+  `config.zon` is plain ZON.
 - Only the scroller layout is kept, the other layouts were removed.
 - Workspaces: each one a plane of rows; tags became the rows.
 - Overview, zoomed out with `river-window-scale-v1` when the compositor
@@ -66,6 +68,9 @@ Changes, October 2026, by CQZY:
   workspaces (four fingers).
 - Animations for focus, swaps, width changes, rows, workspaces, opening
   windows, and closing windows through ghosts.
+- The `center` action, the `center_single` scroller option, and config
+  reload on `SIGUSR1`.
+- `flat-config`, a terminal editor for `config.zon`.
 - Renamed the program to `flat-wm`, the config directory to
   `~/.config/flat-wm/`, the man page to `flat-wm(1)`, the session file to
   `flat.desktop`.
@@ -74,7 +79,7 @@ Changes, October 2026, by CQZY:
 
 New files: `wm/protocol/river-window-scale-v1.xml` and
 `wm/protocol/river-workspace-v1.xml` (MIT, © 2026 CQZY),
-`wm/README.md`, `wm/contrib/flat.desktop`.
+`wm/README.md`, `wm/contrib/flat.desktop`, `wm/src/flat_config/`.
 
 ## The rest
 

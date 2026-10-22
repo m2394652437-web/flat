@@ -152,26 +152,7 @@ pub fn build(b: *std.Build) void {
     const default_config_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
-        .root_source_file = blk: {
-            const preprocess = b.addExecutable(.{
-                .name = "preprocess",
-                .root_module = b.createModule(.{
-                    .root_source_file = b.path("src/preprocess_config.zig"),
-                    .target = target,
-                    .optimize = .ReleaseSafe,
-                    .imports = &.{
-                        .{ .name = "mvzr", .module = mvzr_mod },
-                    },
-                }),
-                .use_llvm = use_llvm,
-                .use_lld = use_llvm,
-            });
-            const preprocess_run = b.addRunArtifact(preprocess);
-            preprocess_run.addArg("-i");
-            preprocess_run.addFileArg(config_path);
-            preprocess_run.addArg("-o");
-            break :blk preprocess_run.addOutputFileArg("config.zon");
-        },
+        .root_source_file = config_path,
     });
     const config_mod = b.createModule(.{
         .target = target,
@@ -279,6 +260,37 @@ pub fn build(b: *std.Build) void {
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
 
+    // flat-config: a TUI for editing the configuration
+    const config_def_files = b.addWriteFiles();
+    _ = config_def_files.addCopyFile(b.path("config.def.zon"), "config.def.zon");
+    const config_def_mod = b.createModule(.{
+        .root_source_file = config_def_files.add("config_def.zig", "pub const text = @embedFile(\"config.def.zon\");\n"),
+    });
+    const flat_config = b.addExecutable(.{
+        .name = "flat-config",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/flat_config/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "flags", .module = flags_mod },
+                .{ .name = "config", .module = config_mod },
+                .{ .name = "config_def", .module = config_def_mod },
+            },
+            .link_libc = true,
+        }),
+        .use_llvm = use_llvm,
+        .use_lld = use_llvm,
+    });
+    flat_config.pie = pie;
+    flat_config.root_module.linkSystemLibrary("wayland-client", .{});
+    flat_config.root_module.linkSystemLibrary("xkbcommon", .{});
+    if (bar_enabled) {
+        flat_config.root_module.linkSystemLibrary("pixman-1", .{});
+        flat_config.root_module.linkSystemLibrary("fcft", .{});
+    }
+    b.installArtifact(flat_config);
+
     b.installFile("doc/flat-wm.1", "share/man/man1/flat-wm.1",);
     b.installFile("config.def.zon", "share/doc/flat-wm/config.zon",);
     b.installFile("contrib/flat.desktop", "share/wayland-sessions/flat.desktop",);
@@ -329,7 +341,16 @@ pub fn build(b: *std.Build) void {
     // A top level step for running all tests. dependOn can be called multiple
     // times and since the two run steps do not depend on one another, this will
     // make the two of them run in parallel.
+    const flat_config_tests = b.addTest(.{
+        .root_module = flat_config.root_module,
+        .use_llvm = use_llvm,
+        .use_lld = use_llvm,
+    });
+    const run_flat_config_tests = b.addRunArtifact(flat_config_tests);
+    b.step("test-flat-config", "Run flat-config tests").dependOn(&run_flat_config_tests.step);
+
     const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&run_flat_config_tests.step);
     test_step.dependOn(&run_config_tests.step);
     test_step.dependOn(&run_kwm_tests.step);
     test_step.dependOn(&run_exe_tests.step);

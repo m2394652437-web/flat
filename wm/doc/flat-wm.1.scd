@@ -55,6 +55,9 @@ Mod4-Shift-c
 Mod4-Return
 	Center the window.
 
+Mod4-c
+	Center the window, floating ones on the output.
+
 Mod4-b
 	Toggle the status bar.
 
@@ -227,6 +230,12 @@ flat-wm searches for a user configuration in the following paths:
 The user configuration overrides compile-time configuration. You only need to
 specify the values you want to change, rather than duplicating the entire
 configuration.
+
+The configuration is plain ZON. *flat-config* edits it in a terminal and keeps
+its comments.
+
+flat-wm reloads the user configuration on *SIGUSR1*, the same as the
+*reload_config* action.
 
 # EXAMPLES
 

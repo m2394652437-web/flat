@@ -14,6 +14,8 @@ const ctx = Context.get();
 outer_gap: i32,
 inner_gap: i32,
 mfact: f32,
+// a lone tiled window sits in the middle of the output instead of at the left
+center_single: bool = false,
 
 
 pub fn arrange(self: *const Self, output: *Output) !void {
@@ -54,6 +56,9 @@ pub fn arrange(self: *const Self, output: *Output) !void {
     });
     const right = output.width - self.outer_gap - master_width;
     const master_x = blk: {
+        if (self.center_single and is_single(output, focus_top)) {
+            break :blk @divFloor(output.width-master_width, 2);
+        }
         const x = if (focus_top.scroller_x) |scroller_x| switch (scroller_x) {
             .x => |x| x,
             .center => break :blk @divFloor(output.width-focus_top.width, 2),
@@ -148,6 +153,16 @@ fn animated_width(self: *const Self, window: *Window, available_width: i32) i32 
 fn column_width(self: *const Self, available_width: i32, mfact: f32) i32 {
     const width: i32 = @intFromFloat(@as(f32, @floatFromInt(available_width)) * mfact);
     return @min(width, available_width - 2*self.outer_gap);
+}
+
+
+// `window` is the only tiled window visible in `output`
+fn is_single(output: *Output, window: *Window) bool {
+    var it = ctx.windows.iterator(.forward);
+    while (it.next()) |other| {
+        if (other != window and other.is_visible_in(output) and !other.floating) return false;
+    }
+    return true;
 }
 
 

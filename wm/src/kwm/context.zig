@@ -94,6 +94,8 @@ output_states: std.StringHashMap(*Output.State) = undefined,
 
 mode: []const u8,
 running: bool = true,
+// SIGUSR1 arrived, reload the configuration in the next manage sequence
+reload_pending: bool = false,
 any_inputs_plugged: bool = false,
 env: process.Environ.Map = undefined,
 startup_processes: std.ArrayList(process.Child) = .empty,
@@ -314,7 +316,7 @@ pub fn run_timer_tasks(self: *Self) void {
 pub fn reload_config(self: *Self) void {
     log.debug("reloading config", .{});
 
-    const mask = config.reload(.{ .gpa = self.gpa, .io = self.io, .env = &self.env }, &self.cfg, self.config_path) catch |err| {
+    const mask = config.reload(.{ .gpa = self.gpa, .io = self.io }, &self.cfg, self.config_path) catch |err| {
         log.err("reload configuration failed: {}", .{err});
         return;
     };
@@ -476,6 +478,10 @@ pub fn update_bar_status(self: *Self) void {
 pub fn handle_signal(self: *Self, sig: posix.SIG) void {
     switch (sig) {
         .INT, .TERM, .QUIT => self.quit(false),
+        .USR1 => {
+            self.reload_pending = true;
+            self.rwm.manageDirty();
+        },
         .KILL => self.quit(true),
         .CHLD => {
             while (true) {
@@ -979,13 +985,7 @@ fn init_env_map(self: *Self) void {
 fn load_config(self: *Self) void {
     log.debug("loading configuration", .{});
 
-    var env: process.Environ.Map = self.init_env.createMap(self.gpa) catch |err| blk: {
-        log.warn("create environ map failed: {}", .{err});
-        break :blk .init(self.gpa);
-    };
-    defer env.deinit();
-
-    self.cfg = config.load(.{ .gpa = self.gpa, .io = self.io, .env = &env }, self.config_path) catch |err| blk: {
+    self.cfg = config.load(.{ .gpa = self.gpa, .io = self.io }, self.config_path) catch |err| blk: {
         log.err("load configuration failed: {}, fallback to default configuration", .{err});
         break :blk config.default;
     };
@@ -1045,6 +1045,11 @@ fn promote_new_seat(self: *Self) void {
 
 fn prepare_manage(self: *Self) void {
     log.debug("prepare to manage", .{});
+
+    if (self.reload_pending) {
+        self.reload_pending = false;
+        self.reload_config();
+    }
 
     {
         var it = self.outputs.safeIterator(.forward);

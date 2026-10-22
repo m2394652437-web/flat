@@ -673,6 +673,19 @@ fn handle_actions(self: *Self) void {
                     window.scroller_x = .center;
                 }
             },
+            .center => {
+                if (ctx.focused_window()) |window| {
+                    if (window.floating) {
+                        const output = window.output orelse continue;
+                        window.move(
+                            @divFloor(output.exclusive_width() - window.width, 2),
+                            @divFloor(output.exclusive_height() - window.height, 2),
+                        );
+                    } else {
+                        window.scroller_x = .center;
+                    }
+                }
+            },
             .toggle_bar => {
                 if (comptime build_options.bar_enabled) {
                     if (ctx.current_output) |output| {

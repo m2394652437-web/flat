@@ -48,6 +48,14 @@ flat -c flat-wm
 The runtime config is read from `$XDG_CONFIG_HOME/flat-wm/config.zon`
 (`~/.config/flat-wm/config.zon`). See `flat-wm(1)`.
 
+`flat-config` edits that file in the terminal. It shows every option with its
+value or default, and edits values in place: comments and layout stay as they
+are. Changing a number or a string offers to change the other places that
+hold the same value. Key and pointer bindings are grouped by mode, then by
+modifiers. Saving checks the file with flat-wm's own parser, keeps the
+original as `config.zon.bak`, and sends `SIGUSR1` to the running flat-wm,
+which reloads its config. Press `?` inside for the keys.
+
 ## License
 
 GPL-3.0, see [LICENSE](LICENSE). The protocols in `protocol/` keep the

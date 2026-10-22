@@ -123,6 +123,8 @@ pub const Action = union(enum) {
     toggle_swallow,
     // center the focused window
     zoom,
+    // center the focused window, floating ones on the output
+    center,
     toggle_bar,
     toggle_overview,
 

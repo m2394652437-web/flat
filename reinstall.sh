@@ -8,11 +8,14 @@
 # usage: ./reinstall.sh [--if-changed] [--hook]
 #   --if-changed  do nothing if no source file changed since the last install
 #   --hook        report as a Claude Code Stop hook (JSON on stdout)
+#
+# $ZIG names the zig binary (default: zig from $PATH).
 
 set -u
 
 root=$(cd "$(dirname "$0")" && pwd)
 prefix=${PREFIX:-$HOME/.local}
+zig=${ZIG:-zig}
 state=${XDG_STATE_HOME:-$HOME/.local/state}/flat
 stamp=$state/reinstall.stamp
 log=$state/reinstall.log
@@ -23,7 +26,7 @@ for arg in "$@"; do
     case $arg in
         --if-changed) if_changed=true ;;
         --hook) hook=true ;;
-        -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
     esac
 done
@@ -78,7 +81,7 @@ $hook && hook_input=$(cat)
 : >"$log"
 build() {
     echo "== $1" >>"$log"
-    (cd "$root/$1" && shift && zig build -Doptimize=ReleaseSafe --prefix "$prefix" "$@" install) >>"$log" 2>&1
+    (cd "$root/$1" && shift && "$zig" build -Doptimize=ReleaseSafe --prefix "$prefix" "$@" install) >>"$log" 2>&1
 }
 
 build compositor -Dxwayland=true || report_failure compositor

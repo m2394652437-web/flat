@@ -4,7 +4,6 @@ const std = @import("std");
 const Io = std.Io;
 const mem = std.mem;
 const zon = std.zon;
-const process = std.process;
 const log = std.log.scoped(.config);
 
 const wayland = @import("wayland");
@@ -14,7 +13,6 @@ const kwm = @import("kwm");
 
 const rule = @import("config/rule.zig");
 const constants = @import("config/constants.zig");
-const preprocess = @import("config/preprocess.zig");
 pub const meta = @import("config/meta.zig");
 
 // work around for zig issue: https://codeberg.org/ziglang/zig/issues/31570
@@ -120,14 +118,13 @@ pub fn load(
     ctx: struct {
         gpa: mem.Allocator,
         io: Io,
-        env: *const process.Environ.Map,
     },
     path: []const u8,
 ) !Config {
     log.info("loading configuration from `{s}`", .{ path });
 
-    var buffer = try preprocess.preprocess(.{ .gpa = ctx.gpa, .io = ctx.io, .env = ctx.env }, path);
-    defer buffer.deinit(ctx.gpa);
+    const source = try Io.Dir.cwd().readFileAllocOptions(ctx.io, path, ctx.gpa, .unlimited, .of(u8), 0);
+    defer ctx.gpa.free(source);
 
     @setEvalBranchQuota(20000);
     var diag: std.zon.parse.Diagnostics = .{};
@@ -135,7 +132,7 @@ pub fn load(
     const config = zon.parse.fromSliceAlloc(
         meta.add_default(Config, default),
         ctx.gpa,
-        buffer.items[0..buffer.items.len-1:0],
+        source,
         &diag,
         .{.ignore_unknown_fields = true},
     ) catch |err| {
@@ -152,14 +149,13 @@ pub fn reload(
     ctx: struct {
         gpa: mem.Allocator,
         io: Io,
-        env: *const process.Environ.Map,
     },
     old: *Config,
     path: []const u8
 ) !meta.field_mask(Config) {
     log.debug("reload configuration from `{s}`", .{ path });
 
-    var new = try load(.{ .gpa = ctx.gpa, .io = ctx.io, .env = ctx.env }, path);
+    var new = try load(.{ .gpa = ctx.gpa, .io = ctx.io }, path);
     defer free(ctx.gpa, new);
 
     var mask: meta.field_mask(Config) = .{};

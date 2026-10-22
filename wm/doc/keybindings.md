@@ -13,6 +13,7 @@ configuration file.
 | Mod4-Shift-q | Quit the session |
 | Mod4-Shift-c | Close the window |
 | Mod4-Return | Center the window |
+| Mod4-c | Center the window, floating ones on the output |
 | Mod4-b | Toggle the status bar |
 | Mod4-\[jk\] | Focus the next/previous window |
 | Mod4-Ctrl-\[jk\] | Focus the next/previous non-floating window |

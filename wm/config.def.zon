@@ -205,6 +205,8 @@
             .mfact = 0.5,
             .inner_gap = 16,
             .outer_gap = 9,
+            // center the window when it is the only tiled one on the output
+            .center_single = true,
         },
     },
 
@@ -449,6 +451,15 @@
                 .event = .{
                     .click = .{
                         .pressed = .close,
+                    },
+                },
+            },
+            .{
+                .keysym = "c",
+                .modifiers = .{ .mod4 = true },
+                .event = .{
+                    .click = .{
+                        .pressed = .center,
                     },
                 },
             },

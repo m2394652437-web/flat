@@ -49,6 +49,7 @@ pub fn run(wl_display: *wl.Display) !void {
     posix.sigaddset(&mask, posix.SIG.TERM);
     posix.sigaddset(&mask, posix.SIG.QUIT);
     posix.sigaddset(&mask, posix.SIG.CHLD);
+    posix.sigaddset(&mask, posix.SIG.USR1);
     posix.sigprocmask(posix.SIG.BLOCK, &mask, null);
     const signal_fd = try posix.signalfd(-1, &mask, (1 << @bitOffsetOf(posix.O, "NONBLOCK")) | (1 << @bitOffsetOf(posix.O, "CLOEXEC")));
     defer posix.close(signal_fd);
