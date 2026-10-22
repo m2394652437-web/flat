@@ -136,6 +136,8 @@ default.
 | `?` | all keys |
 
 - Only the value you change is rewritten. Comments and layout stay.
+- Opening a group closes the other open groups on its level, under the
+  same parent.
 - Key and pointer bindings are grouped by mode, then by modifiers (Super,
   Alt, ...). Pressing `a` on a group adds a binding with that mode and those
   modifiers.

@@ -253,6 +253,23 @@ fn open_to(self: *Self, path: []const Seg) void {
     for (keys) |k| self.set_expanded(k, true);
 }
 
+// open the row under the cursor and close the open rows beside it
+fn open_alone(self: *Self) void {
+    const row = self.current() orelse return;
+    var i = self.cursor;
+    while (i > 0) {
+        i -= 1;
+        const r = self.rows[i];
+        if (r.depth < row.depth) break;
+        if (r.depth == row.depth and r.expanded) self.set_expanded(r.key, false);
+    }
+    for (self.rows[self.cursor + 1 ..]) |r| {
+        if (r.depth < row.depth) break;
+        if (r.depth == row.depth and r.expanded) self.set_expanded(r.key, false);
+    }
+    self.set_expanded(row.key, true);
+}
+
 fn set_expanded(self: *Self, key: []const u8, open: bool) void {
     if (open) {
         if (self.expanded.contains(key)) return;
@@ -317,7 +334,7 @@ fn edit_row(self: *Self, raw: bool) void {
     const row = self.current() orelse return;
     if (row.group != null) {
         if (raw) return self.complain("a group of bindings; open it to change one", .{});
-        self.set_expanded(row.key, !row.expanded);
+        if (row.expanded) self.set_expanded(row.key, false) else self.open_alone();
         return self.rebuild(null);
     }
     const st = row.st;
@@ -367,7 +384,7 @@ fn edit_row(self: *Self, raw: bool) void {
         },
         .@"struct", .tuple, .array, .slice => {
             if (row.expandable) {
-                self.set_expanded(row.key, !row.expanded);
+                if (row.expanded) self.set_expanded(row.key, false) else self.open_alone();
                 self.rebuild(null);
             } else {
                 self.edit_row(true);
@@ -877,7 +894,7 @@ fn toggle(self: *Self) void {
     const row = self.current() orelse return;
     if (row.st.ty.unwrap().kind == .bool) return self.edit_row(false);
     if (row.expandable) {
-        self.set_expanded(row.key, !row.expanded);
+        if (row.expanded) self.set_expanded(row.key, false) else self.open_alone();
         self.rebuild(null);
     }
 }
@@ -886,7 +903,7 @@ fn expand_or_enter(self: *Self) void {
     const row = self.current() orelse return;
     if (!row.expandable) return;
     if (!row.expanded) {
-        self.set_expanded(row.key, true);
+        self.open_alone();
         self.rebuild(null);
     } else self.move_cursor(1);
 }
@@ -1453,6 +1470,7 @@ fn draw_help(self: *Self, w: usize, h: usize) void {
         "",
         "Bold names are set in the file; gray ones use the default.",
         "Shaded rows: the cursor's level (not at the top), and what lies under it.",
+        "Opening a group closes the open groups beside it.",
         "Bindings are grouped by mode, then by modifiers (Super, Alt, ...).",
         "Comments and layout in the file are kept. Changing a number or a",
         "string offers to change the other places that hold the same value.",
@@ -1481,4 +1499,56 @@ test "Bg.parse" {
     try std.testing.expectError(error.BadColor, Bg.parse("256"));
     try std.testing.expectError(error.BadColor, Bg.parse("#12345"));
     try std.testing.expectError(error.BadColor, Bg.parse("blue"));
+}
+
+test "opening a row closes the open rows beside it" {
+    const gpa = std.testing.allocator;
+    const T = struct {
+        a: struct { x: u8 },
+        b: struct { in: struct { y: u8 }, out: struct { z: u8 } },
+        c: u8,
+    };
+    const dflt = ".{ .a = .{ .x = 1 }, .b = .{ .in = .{ .y = 2 }, .out = .{ .z = 3 } }, .c = 4 }";
+    var model = try Model.init(gpa, schema.of(T), ".{}\n", dflt, ".{}");
+    defer model.deinit();
+    var term: Term = .{ .gpa = gpa, .orig = undefined };
+    const no = struct {
+        fn hook(_: *anyopaque, _: []const u8, _: *std.ArrayList(u8)) bool {
+            return false;
+        }
+    }.hook;
+    var app = try init(gpa, &model, &term, .{ .ctx = undefined, .validate = no, .save = no }, "test", .{});
+    defer app.deinit();
+
+    const keys = struct {
+        fn of(s: *Self) ![]const u8 {
+            var out: std.ArrayList(u8) = .empty;
+            for (s.rows) |r| {
+                try out.appendSlice(s.arena.allocator(), r.key);
+                try out.append(s.arena.allocator(), ' ');
+            }
+            return out.items;
+        }
+    }.of;
+    const press = struct {
+        fn char(s: *Self, c: u8) void {
+            s.on_normal(.{ .char = c });
+        }
+    }.char;
+
+    press(&app, 'l'); // open a
+    try std.testing.expectEqualStrings("a a.x b c ", try keys(&app));
+    press(&app, 'j');
+    press(&app, 'j');
+    press(&app, 'l'); // open b, a closes
+    try std.testing.expectEqualStrings("a b b.in b.out c ", try keys(&app));
+    try std.testing.expectEqualStrings("b", app.current().?.key);
+    press(&app, 'j');
+    press(&app, ' '); // open b.in
+    press(&app, 'j');
+    press(&app, 'j');
+    press(&app, 'l'); // open b.out: b.in closes, b stays open
+    try std.testing.expectEqualStrings("a b b.in b.out b.out.z c ", try keys(&app));
+    press(&app, 'h'); // closing opens nothing else
+    try std.testing.expectEqualStrings("a b b.in b.out c ", try keys(&app));
 }
